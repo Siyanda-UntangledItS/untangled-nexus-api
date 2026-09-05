@@ -1,0 +1,27 @@
+# Development-only MongoDB service.
+# Do NOT use these defaults in production.
+# Override with environment variables or a docker-compose.override.yml.
+
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: untangled_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-changeme_dev_only}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-untangled_its}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo_data:

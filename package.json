@@ -1,0 +1,31 @@
+{
+  "name": "untangled-it-solutions-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Untangled Nexus Backend API \u2013 website + desktop (tasks, notifications, auth, attendance)",
+  "scripts": {
+    "dev": "tsx server/index.ts",
+    "start": "tsx server/index.ts",
+    "test": "node --test \"tests/*.test.mjs\"",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test",
+    "benchmark": "node scripts/benchmark.mjs"
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "dotenv": "^17.4.2",
+    "h3": "^1.15.11",
+    "listhen": "^1.10.1",
+    "mongoose": "^9.9.2",
+    "tsx": "^4.23.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "nodemon": "^3.1.14",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
