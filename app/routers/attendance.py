@@ -162,9 +162,33 @@ async def _attendance_action(ctx: dict, action: str):
             {"$set": {"status": "on_break", "break_started_at": now, "updated_at": now}},
         )
     elif action == "break_end":
+        # Must clear break_started_at — otherwise status still looks like on_break
+        # and the desktop never leaves the break state.
+        started = record.get("break_started_at")
+        extra_mins = 0
+        if started is not None:
+            try:
+                if isinstance(started, datetime):
+                    st = started if started.tzinfo else started.replace(tzinfo=timezone.utc)
+                else:
+                    st = datetime.fromisoformat(str(started).replace("Z", "+00:00"))
+                    if st.tzinfo is None:
+                        st = st.replace(tzinfo=timezone.utc)
+                extra_mins = max(0, int((now - st.astimezone(timezone.utc)).total_seconds() // 60))
+            except Exception:
+                extra_mins = 0
+        prev = int(record.get("break_duration_minutes") or 0)
         await db["attendance"].update_one(
             {"_id": record["_id"]},
-            {"$set": {"status": "clocked_in", "break_ended_at": now, "updated_at": now}},
+            {
+                "$set": {
+                    "status": "clocked_in",
+                    "break_ended_at": now,
+                    "break_duration_minutes": prev + extra_mins,
+                    "updated_at": now,
+                    "break_started_at": None,
+                }
+            },
         )
     else:
         raise HTTPException(status_code=400, detail="Unknown action")
@@ -212,10 +236,27 @@ async def attendance_status(ctx: dict = Depends(require_session)):
         raw = str(record.get("status") or "").strip().lower().replace(" ", "_").replace("-", "_")
         has_in = bool(record.get("clock_in_at") or record.get("started_at"))
         has_out = bool(record.get("clock_out_at"))
-        on_break = bool(record.get("break_started_at")) and has_in and not has_out
+        # Active break: explicit status, OR break_started_at with no completed end after it
+        bs = record.get("break_started_at")
+        be = record.get("break_ended_at")
+        break_open = False
+        if bs and has_in and not has_out:
+            if not be:
+                break_open = True
+            else:
+                try:
+                    def _ts(v):
+                        if isinstance(v, datetime):
+                            return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+                        t = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+                        return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+                    break_open = _ts(bs) > _ts(be)
+                except Exception:
+                    break_open = raw in ("on_break", "break", "paused")
+        on_break = raw in ("on_break", "break", "paused") or break_open
 
         if has_in and not has_out:
-            if on_break or raw in ("on_break", "break", "paused"):
+            if on_break:
                 status = "on_break"
                 state = "on_break"
             else:
